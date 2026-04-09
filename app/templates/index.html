@@ -67,7 +67,7 @@
                                             <!-- Conteúdo -->
                                             <v-card class="pa-2" max-width="300">
                                                 <img v-if="row.value" style="max-width: 100%;"
-                                                    :src="`http://127.0.0.1:8000/math/?equation=${encodeURIComponent(row.value)}`" />
+                                                    :src="`/math/?equation=${encodeURIComponent(row.value)}`" />
                                             </v-card>
 
                                         </v-menu>
@@ -186,7 +186,7 @@
                     }
 
                     try {
-                        const url = `http://127.0.0.1:8000/math/?equation=${encodeURIComponent(row.value)}`
+                        const url = `/?equation=${encodeURIComponent(row.value)}`
 
                         const response = await fetch(url)
 
