@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@4.0.5/dist/vuetify.min.css">
+</head>
+
+<body>
+    <div id="app">
+        <v-app>
+            <v-container>
+                <v-row>
+                    <v-col cols="12" sm="4">
+                        <v-text-field v-model="newId" label="ID" type="number" variant="outlined"></v-text-field>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                        <v-text-field v-model="newName" label="Nome" variant="outlined"></v-text-field>
+                    </v-col>
+                    <v-col cols="12" sm="2">
+                        <v-btn @click="addItem" color="primary" size="large" block>Adicionar</v-btn>
+                    </v-col>
+                </v-row>
+                <v-row v-if="error">
+                    <v-col>
+                        <v-alert type="error">{{ error }}</v-alert>
+                    </v-col>
+                </v-row>
+                <v-row v-if="loading" justify="center">
+                    <v-col cols="auto">
+                        <v-progress-circular indeterminate color="primary"></v-progress-circular>
+                    </v-col>
+                </v-row>
+                <v-row v-else>
+                    <v-col v-for="item in items" :key="item.id" cols="12" sm="6" md="4">
+                        <v-card elevation="2">
+                            <v-card-title>{{ item.name }}</v-card-title>
+                            <v-card-subtitle>ID: {{ item.id
+                                }}
+                            </v-card-subtitle>
+                        </v-card>
+                    </v-col>
+                </v-row>
+            </v-container>
+        </v-app>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.31/dist/vue.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@4.0.5/dist/vuetify.min.js"></script>
+    <script>
+        const { createApp, ref, onMounted } = Vue
+        const { createVuetify, blueprints: { md3 } } = Vuetify
+
+        const vuetify = createVuetify({
+            blueprint: md3,
+        })
+        const app = createApp({
+            setup() {
+                const items = ref([])
+                const loading = ref(true)
+                const error = ref(null)
+                const newId = ref('')
+                const newName = ref('')
+
+                const fetchItems = async () => {
+                    loading.value = true
+                    error.value = null
+                    try {
+                        const res = await fetch('/items/')
+                        items.value = await res.json()
+                    } catch (e) {
+                        error.value = 'Erro ao buscar items.'
+                        console.error(e)
+                    } finally {
+                        loading.value = false
+                    }
+                }
+
+                const addItem = async () => {
+                    error.value = null
+                    if (!newId.value || !newName.value) {
+                        error.value = 'Preencha o ID e o Nome.'
+                        return
+                    }
+                    try {
+                        const res = await fetch('/items/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                id: parseInt(newId.value),
+                                name: newName.value,
+                            }),
+                        })
+                        if (!res.ok) {
+                            const data = await res.json()
+                            error.value = data.detail || 'Erro ao adicionar item.'
+                            return
+                        }
+                        newId.value = ''
+                        newName.value = ''
+                        await fetchItems()
+                    } catch (e) {
+                        error.value = 'Erro ao conectar com a API.'
+                        console.error(e)
+                    }
+                }
+                onMounted(fetchItems)
+                return { items, loading, error, newId, newName, addItem }
+            }
+        })
+        app.use(vuetify).mount('#app')
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equator</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@4.0.5/dist/vuetify.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <div id="app">
+        <v-app>
+
+            <!-- App Bar -->
+            <v-app-bar elevation="2">
+                <v-app-bar-title>Equator</v-app-bar-title>
+            </v-app-bar>
+
+            <!-- Main -->
+            <v-main>
+                <v-container max-width="800">
+
+                    <!-- Header -->
+                    <v-row class="mb-4">
+                        <v-col>
+                            <v-chip variant="text">
+                                Entradas · {{ rows.length }}
+                            </v-chip>
+                        </v-col>
+                    </v-row>
+
+                    <!-- Lista -->
+                    <v-card class="p-4">
+                        <v-list>
+
+                            <v-list-item v-for="(row, index) in rows" :key="row.id">
+                                <v-row align="center" no-gutters>
+
+                                    <!-- Número -->
+                                    <v-col cols="auto" class="mr-3">
+                                        <v-chip size="small" variant="tonal">
+                                            {{ index + 1 }}
+                                        </v-chip>
+                                    </v-col>
+
+                                    <!-- Input -->
+                                    <v-col>
+                                        <v-text-field v-model="row.value" label="Digite fórmula" hide-details
+                                            clearable />
+                                    </v-col>
+
+                                    <!-- Renderização da Imagem -->
+                                    <v-col cols="auto" class="ml-2">
+                                        <v-menu v-model="row.preview" location="bottom" :close-on-content-click="false">
+
+                                            <!-- Botão -->
+                                            <template #activator="{ props }">
+                                                <v-btn v-bind="props" icon variant="text"
+                                                    @click.stop="handlePreview(row)">
+                                                    <v-icon>mdi-eye</v-icon>
+                                                </v-btn>
+                                            </template>
+
+                                            <!-- Conteúdo -->
+                                            <v-card class="pa-2" max-width="300">
+                                                <img v-if="row.value" style="max-width: 100%;"
+                                                    :src="`http://127.0.0.1:8000/math/?equation=${encodeURIComponent(row.value)}`" />
+                                            </v-card>
+
+                                        </v-menu>
+                                    </v-col>
+
+                                    <!-- Botão com Speed Dial -->
+                                    <v-col cols="auto" class="ml-2">
+                                        <v-speed-dial v-model="row.fab" location="right center"
+                                            transition="scale-transition">
+                                            <!-- Botão principal (FAB) -->
+                                            <template #activator="{ props }">
+                                                <v-fab v-bind="props" icon elevation="2" color="primary">
+                                                    <v-icon>mdi-dots-vertical</v-icon>
+                                                </v-fab>
+                                            </template>
+
+                                            <!-- Ação: Baixar -->
+                                            <v-btn :key="`download-${row.id}`" icon color="blue"
+                                                @click="handleDownload(row, index)">
+                                                <v-icon>mdi-download</v-icon>
+                                            </v-btn>
+
+                                            <!-- Ação: Deletar -->
+                                            <v-btn :key="`delete-${row.id}`" icon color="red" v-if="rows.length > 1"
+                                                @click="removeRow(index)">
+                                                <v-icon>mdi-delete</v-icon>
+                                            </v-btn>
+
+                                        </v-speed-dial>
+                                    </v-col>
+
+                                </v-row>
+                            </v-list-item>
+
+                        </v-list>
+
+                        <v-divider />
+
+                        <!-- Ações -->
+                        <v-card-actions class="justify-space-between">
+
+                            <v-btn prepend-icon="mdi-plus" @click="addRow">
+                                Adicionar
+                            </v-btn>
+
+                            <span v-if="rows.length > 1">
+                                {{ rows.length }} entradas
+                            </span>
+
+                        </v-card-actions>
+
+                    </v-card>
+
+                </v-container>
+            </v-main>
+
+            <v-snackbar v-model="snackbar" :timeout="snackbarTimeout">
+                {{ snackbarText }}
+
+                <template #actions>
+                    <v-btn color="pink" variant="text" @click="snackbar = false">
+                        Fechar
+                    </v-btn>
+                </template>
+            </v-snackbar>
+
+        </v-app>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.5.31/dist/vue.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@4.0.5/dist/vuetify.min.js"></script>
+
+    <script>
+        const { createApp, ref } = Vue
+        const { createVuetify, blueprints: { md2 } } = Vuetify
+
+        const vuetify = createVuetify({ blueprint: md2 })
+        const fab = ref(false)
+
+
+        createApp({
+            setup() {
+                let nextId = 1
+                const rows = ref([{ id: nextId++, value: '', fab: false, preview: false }])
+                const snackbar = ref(false)
+                const snackbarText = ref("")
+                const snackbarTimeout = ref(2000)
+
+
+                function addRow() {
+                    rows.value.push({ id: nextId++, value: '', fab: false, preview: false })
+                }
+
+                function removeRow(index) {
+                    rows.value.splice(index, 1)
+                }
+
+                function handleAction(row, index) {
+                    if (!row.value.trim()) return
+                    alert(`Entrada ${index + 1}: "${row.value}"`)
+                }
+
+                function showSnackbar(message) {
+                    snackbarText.value = message
+                    snackbar.value = true
+                }
+
+                async function handleDownload(row, index) {
+                    row.fab = false
+
+                    // 🚫 Validação
+                    if (!row.value || !row.value.trim()) {
+                        snackbarText.value = "Digite uma equação antes de baixar"
+                        snackbar.value = true
+                        return
+                    }
+
+                    try {
+                        const url = `http://127.0.0.1:8000/math/?equation=${encodeURIComponent(row.value)}`
+
+                        const response = await fetch(url)
+
+                        if (!response.ok) {
+                            throw new Error("Erro ao gerar imagem")
+                        }
+
+                        const blob = await response.blob()
+
+                        const link = document.createElement("a")
+                        link.href = URL.createObjectURL(blob)
+                        link.download = `equacao-${index + 1}.png`
+
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+
+                        URL.revokeObjectURL(link.href)
+
+                    } catch (error) {
+                        showSnackbar("Digite uma equação antes de baixar")
+                        console.error(error)
+                    }
+                }
+
+                function handleDelete(row, index) {
+                    row.fab = false
+                    console.log("Deletar", row, index)
+                }
+
+                function handlePreview(row) {
+                    if (!row.value || !row.value.trim()) {
+                        showSnackbar("Digite uma equação antes de visualizar")
+                        row.preview = false
+                        return
+                    }
+
+                    row.preview = true
+                }
+
+
+                return {
+                    rows,
+                    addRow,
+                    removeRow,
+                    handleAction,
+                    handleDownload,
+                    handleDelete,
+                    handlePreview,
+                    fab,
+                    snackbar,
+                    snackbarText,
+                    snackbarTimeout
+                }
+            }
+        }).use(vuetify).mount('#app')
+    </script>
+
+</body>
+
+</html>
