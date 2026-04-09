@@ -1,3 +1,4 @@
+"""
 from fastapi import APIRouter, Response, Query
 import io
 
@@ -58,6 +59,34 @@ def get_math(
             raise ValueError("Modo inválido")
 
         return Response(content=image, media_type="image/png")
+
+    except Exception as e:
+        return Response(
+            content=f"Erro ao renderizar: {str(e)}",
+            media_type="text/plain",
+            status_code=400,
+        )
+"""
+
+from fastapi import APIRouter, Response, Query
+import ziamath as zm
+
+router = APIRouter()
+
+
+def render_svg(equation: str) -> str:
+    return zm.Latex(equation).svg()
+
+
+@router.get("/")
+def get_math(equation: str = Query(...)):
+    try:
+        svg = render_svg(equation)
+
+        return Response(
+            content=svg,
+            media_type="image/svg+xml"
+        )
 
     except Exception as e:
         return Response(
