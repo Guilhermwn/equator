@@ -1,96 +1,44 @@
-"""
 from fastapi import APIRouter, Response, Query
+from typing import List
+import ziamath as zm
+import zipfile
 import io
 
-# Matplotlib
-import matplotlib.pyplot as plt
-
-# Ziamath + CairoSVG
-import ziamath as zm
-import cairosvg
-
 router = APIRouter()
-
-# CONFIGURAÇÃO GLOBAL (você troca aqui)
-RENDER_MODE = "ziamath"  # "matplotlib" ou "ziamath"
-
-
-def render_with_matplotlib(equation: str) -> bytes:
-    fig = plt.figure()
-
-    fig.text(
-        0.5,
-        0.5,
-        f"${equation}$",
-        horizontalalignment="center",
-        verticalalignment="center",
-    )
-
-    buffer = io.BytesIO()
-    plt.axis("off")
-    plt.savefig(buffer, format="png", bbox_inches="tight", dpi=300, transparent=True)
-    plt.close(fig)
-
-    buffer.seek(0)
-    return buffer.getvalue()
-
-
-def render_with_ziamath(equation: str) -> bytes:
-    svg = zm.Latex(equation).svg()
-    png = cairosvg.svg2png(bytestring=svg.encode("utf-8"), dpi=300, scale=10)
-    return png
-
-
-@router.get("/")
-def get_math(
-    equation: str = Query(...),
-    mode: str = Query(None, enum=["matplotlib", "ziamath"])  # opcional via URL
-):
-    selected_mode = mode or RENDER_MODE
-
-    try:
-        if selected_mode == "matplotlib":
-            image = render_with_matplotlib(equation)
-
-        elif selected_mode == "ziamath":
-            image = render_with_ziamath(equation)
-
-        else:
-            raise ValueError("Modo inválido")
-
-        return Response(content=image, media_type="image/png")
-
-    except Exception as e:
-        return Response(
-            content=f"Erro ao renderizar: {str(e)}",
-            media_type="text/plain",
-            status_code=400,
-        )
-"""
-
-from fastapi import APIRouter, Response, Query
-import ziamath as zm
-
-router = APIRouter()
-
 
 def render_svg(equation: str) -> str:
     return zm.Latex(equation).svg()
-
 
 @router.get("/")
 def get_math(equation: str = Query(...)):
     try:
         svg = render_svg(equation)
-
-        return Response(
-            content=svg,
-            media_type="image/svg+xml"
-        )
-
+        return Response(content=svg, media_type="image/svg+xml")
     except Exception as e:
-        return Response(
-            content=f"Erro ao renderizar: {str(e)}",
-            media_type="text/plain",
-            status_code=400,
-        )
+        return Response(content=f"Erro ao renderizar: {str(e)}",
+                        media_type="text/plain", status_code=400)
+
+@router.get("/batch")
+def get_math_batch(equations: List[str] = Query(...)):
+    """
+    Recebe várias equações e retorna um .zip com um SVG por equação.
+    Exemplo de chamada:
+      GET /batch?equations=x^2&equations=\frac{1}{2}&equations=\sqrt{x}
+    """
+    buffer = io.BytesIO()
+
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for i, eq in enumerate(equations, start=1):
+            try:
+                svg = render_svg(eq)
+                zf.writestr(f"equacao-{i}.svg", svg)
+            except Exception as e:
+                # salva um .txt de erro no lugar do SVG
+                zf.writestr(f"equacao-{i}-erro.txt", str(e))
+
+    buffer.seek(0)
+    return Response(
+        content=buffer.read(),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=equacoes.zip"}
+    )

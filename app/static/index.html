@@ -117,6 +117,10 @@
                                 {{ rows.length }} entradas
                             </span>
 
+                            <v-btn v-if="rows.length > 1" prepend-icon="mdi-download" @click="downloadAll">
+                                Baixar tudo
+                            </v-btn>
+
                         </v-card-actions>
 
                     </v-card>
@@ -156,6 +160,26 @@
                 const snackbarText = ref("")
                 const snackbarTimeout = ref(2000)
 
+                async function fetchMath(path, params) {
+                    const query = new URLSearchParams()
+                    for (const [key, value] of Object.entries(params)) {
+                        if (Array.isArray(value)) {
+                            value.forEach(v => query.append(key, v))
+                        } else {
+                            query.set(key, value)
+                        }
+                    }
+
+                    const response = await fetch(`math/${path}?${query.toString()}`)
+
+                    if (!response.ok) {
+                        const text = await response.text()
+                        throw new Error(text || `Erro na requisição: ${response.status}`)
+                    }
+
+                    return response
+                }
+
 
                 function addRow() {
                     rows.value.push({ id: nextId++, value: '', fab: false, preview: false })
@@ -168,48 +192,6 @@
                 function handleAction(row, index) {
                     if (!row.value.trim()) return
                     alert(`Entrada ${index + 1}: "${row.value}"`)
-                }
-
-                function showSnackbar(message) {
-                    snackbarText.value = message
-                    snackbar.value = true
-                }
-
-                async function handleDownload(row, index) {
-                    row.fab = false
-
-                    // 🚫 Validação
-                    if (!row.value || !row.value.trim()) {
-                        snackbarText.value = "Digite uma equação antes de baixar"
-                        snackbar.value = true
-                        return
-                    }
-
-                    try {
-                        const url = `/?equation=${encodeURIComponent(row.value)}`
-
-                        const response = await fetch(url)
-
-                        if (!response.ok) {
-                            throw new Error("Erro ao gerar imagem")
-                        }
-
-                        const blob = await response.blob()
-
-                        const link = document.createElement("a")
-                        link.href = URL.createObjectURL(blob)
-                        link.download = `equacao-${index + 1}.png`
-
-                        document.body.appendChild(link)
-                        link.click()
-                        document.body.removeChild(link)
-
-                        URL.revokeObjectURL(link.href)
-
-                    } catch (error) {
-                        showSnackbar("Digite uma equação antes de baixar")
-                        console.error(error)
-                    }
                 }
 
                 function handleDelete(row, index) {
@@ -227,6 +209,54 @@
                     row.preview = true
                 }
 
+                function showSnackbar(message) {
+                    snackbarText.value = message
+                    snackbar.value = true
+                }
+
+                async function handleDownload(row, index) {
+                    row.fab = false
+                    if (!row.value?.trim()) {
+                        showSnackbar("Digite uma equação antes de baixar")
+                        return
+                    }
+                    try {
+                        const response = await fetchMath("", { equation: row.value.trim() })
+                        const blob = await response.blob()
+                        const link = document.createElement("a")
+                        link.href = URL.createObjectURL(blob)
+                        link.download = `equacao-${index + 1}.svg`
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                        URL.revokeObjectURL(link.href)
+                    } catch (error) {
+                        showSnackbar("Erro ao baixar equação")
+                        console.error(error)
+                    }
+                }
+
+                async function downloadAll() {
+                    const filled = rows.value.filter(r => r.value?.trim())
+                    if (filled.length === 0) {
+                        showSnackbar("Digite ao menos uma equação antes de baixar tudo")
+                        return
+                    }
+                    try {
+                        const response = await fetchMath("batch", { equations: filled.map(r => r.value.trim()) })
+                        const blob = await response.blob()
+                        const link = document.createElement("a")
+                        link.href = URL.createObjectURL(blob)
+                        link.download = "equacoes.zip"
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                        URL.revokeObjectURL(link.href)
+                    } catch (error) {
+                        showSnackbar("Erro ao baixar equações")
+                        console.error(error)
+                    }
+                }
 
                 return {
                     rows,
@@ -236,6 +266,7 @@
                     handleDownload,
                     handleDelete,
                     handlePreview,
+                    downloadAll,
                     fab,
                     snackbar,
                     snackbarText,
